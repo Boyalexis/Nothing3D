@@ -1,0 +1,22 @@
+# Godot generated files
+/.godot/
+
+# Local portable development tools
+/tools/
+
+# CMake build output
+/build/
+/out/
+/aqtinstall.log
+
+# User project files and temporary output
+*.n3d
+*.tmp
+
+# OS/editor metadata
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Local scratch notes
+/新建 文本文档.txt

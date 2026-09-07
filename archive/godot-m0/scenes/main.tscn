@@ -1,0 +1,143 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.035, 0.043, 0.055, 1)
+
+[node name="RootLayout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Toolbar" type="PanelContainer" parent="RootLayout"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+
+[node name="ToolbarMargin" type="MarginContainer" parent="RootLayout/Toolbar"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 8
+
+[node name="ToolbarContent" type="HBoxContainer" parent="RootLayout/Toolbar/ToolbarMargin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ProductName" type="Label" parent="RootLayout/Toolbar/ToolbarMargin/ToolbarContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.38, 0.78, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "Nothing3D"
+
+[node name="Phase" type="Label" parent="RootLayout/Toolbar/ToolbarMargin/ToolbarContent"]
+layout_mode = 2
+size_flags_vertical = 1
+text = "三维参数化场景编辑器 · M0"
+vertical_alignment = 1
+
+[node name="Workspace" type="HSplitContainer" parent="RootLayout"]
+layout_mode = 2
+size_flags_vertical = 3
+split_offset = 220
+
+[node name="ScenePanel" type="PanelContainer" parent="RootLayout/Workspace"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+
+[node name="SceneMargin" type="MarginContainer" parent="RootLayout/Workspace/ScenePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="SceneContent" type="VBoxContainer" parent="RootLayout/Workspace/ScenePanel/SceneMargin"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="RootLayout/Workspace/ScenePanel/SceneMargin/SceneContent"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "场景对象"
+
+[node name="EmptyHint" type="Label" parent="RootLayout/Workspace/ScenePanel/SceneMargin/SceneContent"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "当前场景为空"
+vertical_alignment = 1
+
+[node name="EditorArea" type="HSplitContainer" parent="RootLayout/Workspace"]
+layout_mode = 2
+size_flags_horizontal = 3
+split_offset = 760
+
+[node name="ViewportPlaceholder" type="PanelContainer" parent="RootLayout/Workspace/EditorArea"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="ViewportLabel" type="Label" parent="RootLayout/Workspace/EditorArea/ViewportPlaceholder"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.61, 0.69, 1)
+theme_override_font_sizes/font_size = 18
+text = "三维视图将在 M1 加入"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PropertyPanel" type="PanelContainer" parent="RootLayout/Workspace/EditorArea"]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+
+[node name="PropertyMargin" type="MarginContainer" parent="RootLayout/Workspace/EditorArea/PropertyPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="PropertyContent" type="VBoxContainer" parent="RootLayout/Workspace/EditorArea/PropertyPanel/PropertyMargin"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="RootLayout/Workspace/EditorArea/PropertyPanel/PropertyMargin/PropertyContent"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "属性"
+
+[node name="EmptyHint" type="Label" parent="RootLayout/Workspace/EditorArea/PropertyPanel/PropertyMargin/PropertyContent"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "未选择对象"
+vertical_alignment = 1
+
+[node name="StatusBar" type="PanelContainer" parent="RootLayout"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+
+[node name="StatusMargin" type="MarginContainer" parent="RootLayout/StatusBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
+
+[node name="Status" type="Label" parent="RootLayout/StatusBar/StatusMargin"]
+layout_mode = 2
+text = "就绪 · 空项目"
+vertical_alignment = 1
+

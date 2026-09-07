@@ -1,0 +1,83 @@
+#pragma once
+#include "render/BoxGeometry.h"
+#include "render/CylinderGeometry.h"
+#include <QImage>
+#include <QMatrix4x4>
+#include <QRect>
+#include <cmath>
+#include <QDebug>
+
+// Independent CPU raster reference: test the nearest face, not just non-empty pixels.
+inline bool hasBox(const QImage& image, const QMatrix4x4& mvp, const QRect& overlay = {})
+{
+    if (image.width()<100 || image.height()<100) return false;
+    const auto mesh = demoVertices();
+    int cylinderSamples=0;
+    int boxSamples=0, backgroundSamples=0, overlaps=0;
+    for (int row=1; row<24; ++row) for (int col=1; col<24; ++col) {
+        const int px=image.width()*col/24, py=image.height()*row/24;
+        if (overlay.contains(px,py)) continue;
+        const float x=2*(float(px)+0.5f)/float(image.width())-1;
+        const float y=2*(float(py)+0.5f)/float(image.height())-1;
+        float nearest=2, edge=0;
+        int winner=-1, hits=0;
+        for (int tri=0; tri<int(mesh.size()/3); ++tri) {
+            QVector3D v[3];
+            bool behind=false;
+            for (int k=0; k<3; ++k) {
+                const auto& p=mesh[tri*3+k].position;
+                const auto clip=mvp*QVector4D(p[0],p[1],p[2],1);
+                if (clip.w()<=0) { behind=true; break; }
+                v[k]=clip.toVector3D()/clip.w();
+            }
+            if (behind) continue;
+            const float denominator=(v[1].y()-v[2].y())*(v[0].x()-v[2].x())+(v[2].x()-v[1].x())*(v[0].y()-v[2].y());
+            if (std::abs(denominator)<1e-7f) continue;
+            const float a=((v[1].y()-v[2].y())*(x-v[2].x())+(v[2].x()-v[1].x())*(y-v[2].y()))/denominator;
+            const float b=((v[2].y()-v[0].y())*(x-v[2].x())+(v[0].x()-v[2].x())*(y-v[2].y()))/denominator;
+            const float c=1-a-b;
+            if (a<0 || b<0 || c<0) continue;
+            const float z=a*v[0].z()+b*v[1].z()+c*v[2].z();
+            if (z<0 || z>1) continue;
+            ++hits;
+            if (z<nearest) { nearest=z; winner=tri; edge=std::min(a,std::min(b,c)); }
+        }
+        const auto actual=image.pixelColor(px,py);
+        if (winner>=0) {
+            if (edge<0.06f) continue; // Exclude rasterization boundary rules.
+            ++boxSamples;
+            if(winner>=12) ++cylinderSamples;
+            if (hits>1) ++overlaps;
+            const auto& expected=mesh[winner*3].color;
+            if (std::abs(actual.red()-int(expected[0]*255))>5
+                || std::abs(actual.green()-int(expected[1]*255))>5
+                || std::abs(actual.blue()-int(expected[2]*255))>5) {
+                qInfo("Box mismatch at %d,%d: %d %d %d",px,py,actual.red(),actual.green(),actual.blue()); return false;
+            }
+        } else {
+            if (std::abs(actual.red()-10)<=3 && std::abs(actual.green()-23)<=3 && std::abs(actual.blue()-41)<=3) {
+                ++backgroundSamples;
+            } else {
+                // Shader first mixes grid/axis colors, then blends over the clear color.
+                // Check the resulting color triangle instead of a single palette segment.
+                const QVector3D background(0.04f*255,0.09f*255,0.16f*255);
+                const QVector3D grid=QVector3D(0.32f,0.43f,0.56f)*255-background;
+                const QVector3D actualDelta=QVector3D(actual.red(),actual.green(),actual.blue())-background;
+                const QVector3D axes[]={{0.95f,0.22f,0.22f},{0.25f,0.85f,0.35f},{0.25f,0.55f,1.0f}};
+                bool guide=false;
+                for(const auto& color : axes) {
+                    const auto axis=color*255-background;
+                    const float gg=QVector3D::dotProduct(grid,grid),aa=QVector3D::dotProduct(axis,axis),ga=QVector3D::dotProduct(grid,axis);
+                    const float gd=QVector3D::dotProduct(grid,actualDelta),ad=QVector3D::dotProduct(axis,actualDelta);
+                    const float determinant=gg*aa-ga*ga;
+                    const float u=(gd*aa-ad*ga)/determinant,v=(ad*gg-gd*ga)/determinant;
+                    guide |= u>=-0.04f && v>=-0.04f && u+v<=1.04f && (actualDelta-grid*u-axis*v).length()<5;
+                }
+                if (!guide) { qInfo("Background mismatch at %d,%d: %d %d %d",px,py,actual.red(),actual.green(),actual.blue()); return false; }
+            }
+        }
+    }
+    const bool passed=boxSamples>=12 && cylinderSamples>=3 && backgroundSamples>=40 && overlaps>=8;
+    if(!passed) qInfo("Box counts: samples=%d background=%d overlaps=%d",boxSamples,backgroundSamples,overlaps);
+    return passed;
+}
