@@ -34,10 +34,6 @@ int main() {
         }
         check(QVector3D::crossProduct(points[1]-points[0],points[2]-points[0]).length()>0,"nondegenerate face");
     }
-    const auto ground=Guides::ground();
-    check(ground.size()==406,"100 grid lines per direction and three axes");
-    for(size_t i=0;i<400;++i) check(ground[i].position[1]==-0.002f,"grid on XZ ground plane");
-    check(std::abs(ground[0].position[0]-ground[4].position[0]+0.1f)<0.0001f,"100 mm spacing");
     check(Guides::compass().size()==18 && Guides::letters().size()==18,"compass and labels");
     QMatrix4x4 correction;
     const auto initialCompass=Guides::compassMatrix(camera.view(),correction);

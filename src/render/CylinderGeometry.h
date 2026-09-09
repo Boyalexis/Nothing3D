@@ -3,10 +3,10 @@
 #include <vector>
 #include <cmath>
 
-// Closed demo cylinder: 800 mm diameter, 1400 mm height, Y-up.
-inline std::vector<BoxVertex> cylinderVertices() {
+// Closed cylinder in metres; default 800 mm diameter, 1400 mm height, Y-up.
+inline std::vector<BoxVertex> cylinderVertices(float diameter = 0.8f, float height = 1.4f) {
     constexpr int segments=64;
-    constexpr float radius=0.4f,height=1.4f;
+    const float radius=diameter/2;
     std::vector<BoxVertex> mesh;
     mesh.reserve(segments*12);
     auto triangle=[&](BoxVertex a,BoxVertex b,BoxVertex c) { mesh.insert(mesh.end(),{a,b,c}); };

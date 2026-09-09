@@ -19,7 +19,7 @@ inline bool checkRibbon(QWidget& window,VulkanViewport* viewport) {
     };
     tabs->setCurrentIndex(1);
     for(const char* id : {"createBox","createCylinder"}) {
-        auto* a=window.findChild<QAction*>(id); okay &= a && !a->isEnabled() && !a->toolTip().isEmpty();
+        auto* a=window.findChild<QAction*>(id); okay &= a && a->isEnabled() && !a->toolTip().isEmpty();
     }
     window.grab().save(QStringLiteral("build/ribbon-model.png"));
     tabs->setCurrentIndex(0);

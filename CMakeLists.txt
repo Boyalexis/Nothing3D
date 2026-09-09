@@ -52,6 +52,40 @@ if(MSVC)
 endif()
 
 enable_testing()
+add_executable(placement_tests tests/placement_tests.cpp)
+target_include_directories(placement_tests PRIVATE src)
+target_link_libraries(placement_tests PRIVATE Qt6::Gui)
+if(MSVC)
+    target_compile_options(placement_tests PRIVATE /W4 /permissive- /utf-8)
+endif()
+add_test(NAME ground_placement COMMAND ${CMAKE_COMMAND} -E env
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}" $<TARGET_FILE:placement_tests>)
+add_test(NAME transform_editor COMMAND ${CMAKE_COMMAND} -E env
+    "QT_QPA_PLATFORM=offscreen"
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+    $<TARGET_FILE:Nothing3D> --transform-test)
+add_test(NAME dimension_editor COMMAND ${CMAKE_COMMAND} -E env
+    "QT_QPA_PLATFORM=offscreen"
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+    $<TARGET_FILE:Nothing3D> --dimension-test)
+add_executable(picking_tests tests/picking_tests.cpp)
+target_include_directories(picking_tests PRIVATE src)
+target_link_libraries(picking_tests PRIVATE Qt6::Gui)
+if(MSVC)
+    target_compile_options(picking_tests PRIVATE /W4 /permissive- /utf-8)
+endif()
+add_test(NAME scene_picking COMMAND ${CMAKE_COMMAND} -E env
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}" $<TARGET_FILE:picking_tests>)
+
+add_executable(scene_tests tests/scene_tests.cpp)
+target_include_directories(scene_tests PRIVATE src)
+target_link_libraries(scene_tests PRIVATE Qt6::Gui)
+if(MSVC)
+    target_compile_options(scene_tests PRIVATE /W4 /permissive- /utf-8)
+endif()
+add_test(NAME scene_objects COMMAND ${CMAKE_COMMAND} -E env
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}" $<TARGET_FILE:scene_tests>)
+
 add_executable(camera_tests tests/camera_tests.cpp)
 target_include_directories(camera_tests PRIVATE src)
 target_link_libraries(camera_tests PRIVATE Qt6::Gui)

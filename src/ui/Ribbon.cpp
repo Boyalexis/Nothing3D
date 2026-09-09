@@ -55,7 +55,7 @@ void MainWindow::buildToolbar() {
     const QStyle::StandardPixmap icons[]={QStyle::SP_BrowserReload,QStyle::SP_ArrowUp,QStyle::SP_FileDialogContentsView};
     for(int i=0;i<3;++i) {
         auto* a=button(nav,names[i],ids[i],icons[i]); a->setCheckable(true); a->setChecked(i==0); exclusive->addAction(a);
-        a->setToolTip(names[i]+QStringLiteral("：视口内按住左键拖动。中键 / Shift+中键 / 滚轮仍可使用。"));
+        a->setToolTip(names[i]+QStringLiteral("：视口内按住左键拖动，单击选择对象。中键 / Shift+中键 / 滚轮仍可使用。"));
         connect(a,&QAction::triggered,this,[this,i] { if(viewport_) viewport_->navigation=static_cast<VulkanViewport::Navigation>(i); });
     }
     auto* observe=group(home,QStringLiteral("观察"));
@@ -70,12 +70,25 @@ void MainWindow::buildToolbar() {
     }
     home->addStretch();
     auto* model=page(QStringLiteral("模型 Model"));
-    auto* create=group(model,QStringLiteral("基本体 · 尚未开放"));
-    auto* box=button(create,QStringLiteral("长方体"),"createBox",QStyle::SP_FileIcon,false);
-    auto* cylinder=button(create,QStringLiteral("圆柱体"),"createCylinder",QStyle::SP_DriveHDIcon,false);
-    const auto reason=QStringLiteral("待接入场景对象和尺寸参数。当前模型为固定演示，暂不支持创建。" );
-    box->setToolTip(reason); cylinder->setToolTip(reason);
-    auto* hint=new QLabel(QStringLiteral("下一阶段接入场景对象与尺寸参数\n当前长方体、圆柱体为只读演示"));
+    auto* create=group(model,QStringLiteral("基本体 · 地面放置"));
+    auto* box=button(create,QStringLiteral("长方体"),"createBox",QStyle::SP_FileIcon);
+    auto* cylinder=button(create,QStringLiteral("圆柱体"),"createCylinder",QStyle::SP_DriveHDIcon);
+    auto* cancel=button(create,QStringLiteral("取消放置"),"cancelPlacement",QStyle::SP_DialogCancelButton,false);
+    cancel->setIcon(style()->standardIcon(QStyle::SP_DialogCancelButton));
+    box->setToolTip(QStringLiteral("输入宽、高、深，再在 Y=0 地面单击放置长方体。"));
+    cylinder->setToolTip(QStringLiteral("输入直径、高度，再在 Y=0 地面单击放置圆柱体。"));
+    cancel->setToolTip(QStringLiteral("取消未确认的放置，保留原场景。快捷键 Esc。"));
+    connect(box,&QAction::triggered,this,[this] { showCreationDialog(false); });
+    connect(cylinder,&QAction::triggered,this,[this] { showCreationDialog(true); });
+    auto* hint=new QLabel(QStringLiteral("先输入尺寸，再移动鼠标预览并单击地面\nCtrl：100 mm 吸附 · Esc：取消放置"));
+    if (viewport_) {
+        connect(cancel,&QAction::triggered,viewport_,&VulkanViewport::cancelPlacement);
+        connect(viewport_,&VulkanViewport::placementChanged,this,[cancel,rotate,hint](bool active) {
+            cancel->setEnabled(active); rotate->setEnabled(!active);
+            hint->setText(active ? QStringLiteral("正在放置：移动鼠标显示金色线框，左键确认\nCtrl：100 mm 吸附 · Esc：取消放置")
+                                 : QStringLiteral("先输入尺寸，再移动鼠标预览并单击地面\nCtrl：100 mm 吸附 · Esc：取消放置"));
+        });
+    }
     hint->setObjectName("mutedLabel"); model->addWidget(hint); model->addStretch();
     auto* view=page(QStringLiteral("视图 View"));
     auto* display=group(view,QStringLiteral("视口辅助 · 独立显示开关"));

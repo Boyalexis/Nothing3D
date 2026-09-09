@@ -6,12 +6,14 @@
 #include <QRect>
 #include <cmath>
 #include <QDebug>
+#include <span>
 
 // Independent CPU raster reference: test the nearest face, not just non-empty pixels.
-inline bool hasBox(const QImage& image, const QMatrix4x4& mvp, const QRect& overlay = {})
+inline bool hasSceneMesh(const QImage& image, const QMatrix4x4& mvp, const QRect& overlay,
+                         std::span<const BoxVertex> mesh, int minimumSamples = 12,
+                         int minimumCylinderSamples = 0, int minimumOverlaps = 0)
 {
     if (image.width()<100 || image.height()<100) return false;
-    const auto mesh = demoVertices();
     int cylinderSamples=0;
     int boxSamples=0, backgroundSamples=0, overlaps=0;
     for (int row=1; row<24; ++row) for (int col=1; col<24; ++col) {
@@ -77,7 +79,13 @@ inline bool hasBox(const QImage& image, const QMatrix4x4& mvp, const QRect& over
             }
         }
     }
-    const bool passed=boxSamples>=12 && cylinderSamples>=3 && backgroundSamples>=40 && overlaps>=8;
+    const bool passed=boxSamples>=minimumSamples && cylinderSamples>=minimumCylinderSamples
+        && backgroundSamples>=40 && overlaps>=minimumOverlaps;
     if(!passed) qInfo("Box counts: samples=%d background=%d overlaps=%d",boxSamples,backgroundSamples,overlaps);
     return passed;
+}
+
+inline bool hasBox(const QImage& image, const QMatrix4x4& mvp, const QRect& overlay = {}) {
+    const auto mesh = demoVertices();
+    return hasSceneMesh(image, mvp, overlay, mesh, 12, 3, 8);
 }

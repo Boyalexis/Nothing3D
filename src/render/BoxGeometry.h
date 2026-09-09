@@ -3,13 +3,14 @@
 
 struct BoxVertex { float position[3]; float color[3]; };
 
-// Rendering units are metres: 2000 × 1500 × 1000 mm, bottom centre at origin.
+// Rendering units are metres; default 2000 × 1500 × 1000 mm, bottom centre at origin.
 // Each face has its own vertices so its colour stays flat at shared edges.
-inline std::array<BoxVertex, 36> boxVertices()
+inline std::array<BoxVertex, 36> boxVertices(float width = 2, float height = 1.5f, float depth = 1)
 {
-    constexpr float p[8][3] = {
-        {-1,0,-0.5f}, {1,0,-0.5f}, {1,1.5f,-0.5f}, {-1,1.5f,-0.5f},
-        {-1,0,0.5f}, {1,0,0.5f}, {1,1.5f,0.5f}, {-1,1.5f,0.5f}
+    const float x = width / 2, z = depth / 2;
+    const float p[8][3] = {
+        {-x,0,-z}, {x,0,-z}, {x,height,-z}, {-x,height,-z},
+        {-x,0,z}, {x,0,z}, {x,height,z}, {-x,height,z}
     };
     constexpr int faces[6][4] = {
         {4,5,6,7}, {1,0,3,2}, {5,1,2,6}, {0,4,7,3}, {7,6,2,3}, {0,1,5,4}

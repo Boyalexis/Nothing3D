@@ -6,13 +6,16 @@
 
 class ColorMesh final {
 public:
+    ColorMesh() = default;
+    ColorMesh(const ColorMesh&) = delete;
+    ColorMesh& operator=(const ColorMesh&) = delete;
     void initialize(QVulkanWindow* window, std::span<const BoxVertex> vertices,
                     VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
                     bool depthTest = true, bool depthWrite = true);
     void createPipeline(bool grid = false, int gridMode = 0);
     void drawGrid(VkCommandBuffer command, const QMatrix4x4& viewProjection);
     void draw(VkCommandBuffer command, const QMatrix4x4& mvp, const QRect& area = {},
-              uint32_t first = 0, uint32_t count = 0);
+              uint32_t first = 0, uint32_t count = 0, bool selected = false);
     void releasePipeline();
     void release();
 private:

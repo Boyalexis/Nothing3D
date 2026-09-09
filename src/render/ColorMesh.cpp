@@ -124,7 +124,7 @@ void ColorMesh::createPipeline(bool grid, int gridMode) {
     dynamic.dynamicStateCount = 2; dynamic.pDynamicStates = states;
     VkPipelineLayoutCreateInfo layout{};
     layout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    VkPushConstantRange transform{VK_SHADER_STAGE_VERTEX_BIT, 0, 64};
+    VkPushConstantRange transform{VK_SHADER_STAGE_VERTEX_BIT, 0, 80};
     if(grid) transform = {VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,0,128};
     layout.pushConstantRangeCount = 1; layout.pPushConstantRanges = &transform;
     check(functions_->vkCreatePipelineLayout(window_->device(), &layout, nullptr, &layout_), "Create pipeline layout");
@@ -143,7 +143,7 @@ void ColorMesh::createPipeline(bool grid, int gridMode) {
 }
 
 void ColorMesh::draw(VkCommandBuffer command, const QMatrix4x4& mvp, const QRect& area,
-                     uint32_t first, uint32_t count) {
+                     uint32_t first, uint32_t count, bool selected) {
     const auto size = window_->swapChainImageSize();
     const QRect rect = area.isEmpty() ? QRect(QPoint(0,0), size) : area;
     VkViewport viewport{float(rect.x()), float(rect.y()), float(rect.width()), float(rect.height()), 0, 1};
@@ -153,7 +153,13 @@ void ColorMesh::draw(VkCommandBuffer command, const QMatrix4x4& mvp, const QRect
     functions_->vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
     const VkDeviceSize offset = 0;
     functions_->vkCmdBindVertexBuffers(command, 0, 1, &vertices_, &offset);
-    if(!grid_) functions_->vkCmdPushConstants(command, layout_, VK_SHADER_STAGE_VERTEX_BIT, 0, 64, mvp.constData());
+    if(!grid_) {
+        float constants[20];
+        std::memcpy(constants, mvp.constData(), 64);
+        constants[16] = 1.0f; constants[17] = 0.8f; constants[18] = 0.15f;
+        constants[19] = selected ? 0.6f : 0.0f;
+        functions_->vkCmdPushConstants(command, layout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(constants), constants);
+    }
     functions_->vkCmdDraw(command, count ? count : vertexCount_, 1, first, 0);
 }
 

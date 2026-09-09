@@ -1,5 +1,11 @@
 #include "ui/MainWindow.h"
 #include "ui/RibbonCheck.h"
+#include "ui/SceneCheck.h"
+#include "ui/SelectionCheck.h"
+#include "ui/DimensionCheck.h"
+#include "ui/TransformCheck.h"
+#include "ui/CreationCheck.h"
+#include <cstdio>
 
 #include <QApplication>
 #include <QMenuBar>
@@ -23,8 +29,15 @@ int main(int argc, char* argv[])
     QApplication::setApplicationVersion(QStringLiteral("0.1.0"));
     QApplication::setOrganizationName(QStringLiteral("Nothing3D Learning Project"));
 
-    const bool smoke = application.arguments().contains(QStringLiteral("--smoke-test"));
+    const bool dimensionTest = application.arguments().contains(QStringLiteral("--dimension-test"));
+    const bool transformTest = application.arguments().contains(QStringLiteral("--transform-test"));
+    const bool smoke = transformTest || dimensionTest || application.arguments().contains(QStringLiteral("--smoke-test"));
     const bool gpuTest = application.arguments().contains(QStringLiteral("--gpu-test"));
+    if (dimensionTest || transformTest) {
+        qInstallMessageHandler([](QtMsgType, const QMessageLogContext&, const QString& text) {
+            std::fprintf(stderr,"%s\n",qPrintable(text));
+        });
+    }
     if (gpuTest) {
         QFile freshLog(QStringLiteral("build/q3-vulkan.log"));
         if (!freshLog.open(QIODevice::WriteOnly | QIODevice::Truncate)) return 5;
@@ -59,6 +72,12 @@ int main(int argc, char* argv[])
     int result = 0;
     {
     MainWindow window(smoke ? nullptr : &instance);
+    if (dimensionTest) return checkDimensions(window) ? 0 : 1;
+    if (transformTest) {
+        window.show();
+        QCoreApplication::processEvents();
+        return checkTransforms(window) ? 0 : 1;
+    }
 
     // The smoke-test path proves that Qt can construct the application and
     // main window without requiring a visible desktop window.
@@ -71,6 +90,8 @@ int main(int argc, char* argv[])
         return window.windowTitle() == QStringLiteral("Nothing3D")
             && window.findChildren<QMenuBar*>().isEmpty()
             && window.findChild<QTabWidget*>("ribbonTabs") != nullptr
+            && window.scene().objects().size() == 2
+            && window.findChild<QTreeWidget*>("sceneTree")->topLevelItemCount() == 2
             && !hasBox(blank, correction*camera.projection(1)*camera.view()) ? 0 : 1;
     }
 
@@ -145,6 +166,11 @@ int main(int argc, char* argv[])
         QTimer::singleShot(7700, &window, [&, redraw] {
             redraw->stop();
             visualChecks = checkRibbon(window,window.viewport()) && visualChecks;
+            visualChecks = checkSceneExamples(window) && visualChecks;
+            visualChecks = checkSelection(window) && visualChecks;
+            visualChecks = checkDimensions(window) && visualChecks;
+            visualChecks = checkTransforms(window) && visualChecks;
+            visualChecks = checkCreation(window) && visualChecks;
             auto* viewport = window.viewport();
             bool passed = viewport && viewport->isValid() && viewport->renderedFrames >= 100
                 && visualChecks && imageChecks == 3

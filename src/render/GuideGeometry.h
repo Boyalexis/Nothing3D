@@ -12,22 +12,6 @@ inline const QVector3D blue{0.25f,0.55f,1.0f};
 inline void line(std::vector<BoxVertex>& mesh, QVector3D a, QVector3D b, QVector3D color) {
     for (const auto p : {a,b}) mesh.push_back({{p.x(),p.y(),p.z()}, {color.x(),color.y(),color.z()}});
 }
-inline std::vector<BoxVertex> ground() {
-    std::vector<BoxVertex> mesh;
-    // Metres internally: 100 mm cells, 1 m major lines, 10 m total extent.
-    for (int i=-50; i<=50; ++i) {
-        if (i==0) continue; // World axes replace the two origin grid lines.
-        const float p=float(i)*0.1f;
-        const QVector3D color = i%10==0 ? QVector3D(0.25f,0.34f,0.44f) : QVector3D(0.13f,0.21f,0.30f);
-        // Slightly below the floor prevents coplanar fighting with box bottoms.
-        line(mesh,{p,-0.002f,-5},{p,-0.002f,5},color);
-        line(mesh,{-5,-0.002f,p},{5,-0.002f,p},color);
-    }
-    line(mesh,{-5,0,0},{5,0,0},red);
-    line(mesh,{0,0,0},{0,3,0},green);
-    line(mesh,{0,0,-5},{0,0,5},blue);
-    return mesh;
-}
 inline std::vector<BoxVertex> compass() {
     std::vector<BoxVertex> mesh;
     const QVector3D directions[]={{1,0,0},{0,1,0},{0,0,1}};
