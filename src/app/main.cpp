@@ -1,10 +1,15 @@
 #include "ui/MainWindow.h"
+#include "ui/UiLayoutCheck.h"
 #include "ui/RibbonCheck.h"
 #include "ui/SceneCheck.h"
 #include "ui/SelectionCheck.h"
 #include "ui/DimensionCheck.h"
 #include "ui/TransformCheck.h"
 #include "ui/CreationCheck.h"
+#include "ui/MoveCheck.h"
+#include "ui/HistoryCheck.h"
+#include "ui/ObjectActionsCheck.h"
+#include "ui/ProjectCheck.h"
 #include <cstdio>
 
 #include <QApplication>
@@ -21,6 +26,7 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
+#include <QPainter>
 
 int main(int argc, char* argv[])
 {
@@ -31,9 +37,13 @@ int main(int argc, char* argv[])
 
     const bool dimensionTest = application.arguments().contains(QStringLiteral("--dimension-test"));
     const bool transformTest = application.arguments().contains(QStringLiteral("--transform-test"));
-    const bool smoke = transformTest || dimensionTest || application.arguments().contains(QStringLiteral("--smoke-test"));
+    const bool historyTest = application.arguments().contains(QStringLiteral("--history-test"));
+    const bool objectActionsTest = application.arguments().contains(QStringLiteral("--object-actions-test"));
+    const bool projectTest = application.arguments().contains(QStringLiteral("--project-test"));
+    const bool uiLayoutTest = application.arguments().contains(QStringLiteral("--ui-layout-test"));
+    const bool smoke = uiLayoutTest || projectTest || objectActionsTest || historyTest || transformTest || dimensionTest || application.arguments().contains(QStringLiteral("--smoke-test"));
     const bool gpuTest = application.arguments().contains(QStringLiteral("--gpu-test"));
-    if (dimensionTest || transformTest) {
+    if (projectTest || objectActionsTest || historyTest || dimensionTest || transformTest) {
         qInstallMessageHandler([](QtMsgType, const QMessageLogContext&, const QString& text) {
             std::fprintf(stderr,"%s\n",qPrintable(text));
         });
@@ -72,6 +82,10 @@ int main(int argc, char* argv[])
     int result = 0;
     {
     MainWindow window(smoke ? nullptr : &instance);
+    if (projectTest) { window.show(); QCoreApplication::processEvents(); return checkProject(window)?0:1; }
+    if (uiLayoutTest) return checkUiLayout(window)?0:1;
+    if (objectActionsTest) { window.show(); QCoreApplication::processEvents(); return checkObjectActions(window)?0:1; }
+    if (historyTest) { window.show(); QCoreApplication::processEvents(); return checkHistory(window)?0:1; }
     if (dimensionTest) return checkDimensions(window) ? 0 : 1;
     if (transformTest) {
         window.show();
@@ -111,6 +125,20 @@ int main(int argc, char* argv[])
         image.save(QStringLiteral("build/q3-check-%1.png").arg(imageChecks));
     };
     window.show();
+    if (application.arguments().contains(QStringLiteral("--ui-preview"))) {
+        QTimer::singleShot(1800,&window,[&window,&application] {
+            if (!window.scene().objects().empty()) window.selectObject(window.scene().objects().front().id);
+            auto screenshot=window.grab();
+            if (auto* view=window.viewport(); view && view->supportsGrab()) {
+                const auto pixels=view->grab();
+                const QPoint origin=window.mapFromGlobal(view->mapToGlobal(QPoint(0,0)));
+                QPainter painter(&screenshot);
+                painter.drawImage(QRect(origin,view->size()),pixels);
+            }
+            screenshot.save(QStringLiteral("build/ui-preview.png"));
+            application.quit();
+        });
+    }
     if (gpuTest) {
         auto* redraw = new QTimer(&window);
         QObject::connect(redraw, &QTimer::timeout, &window, [&window] {
@@ -167,10 +195,19 @@ int main(int argc, char* argv[])
             redraw->stop();
             visualChecks = checkRibbon(window,window.viewport()) && visualChecks;
             visualChecks = checkSceneExamples(window) && visualChecks;
+            // Preserve the historical solid-pixel reference and navigation tests
+            // with the user-facing handle toggle off. MoveCheck below verifies
+            // the overlay and interactions with handles enabled.
+            window.findChild<QAction*>("showMoveGizmo")->setChecked(false);
             visualChecks = checkSelection(window) && visualChecks;
             visualChecks = checkDimensions(window) && visualChecks;
             visualChecks = checkTransforms(window) && visualChecks;
             visualChecks = checkCreation(window) && visualChecks;
+            window.findChild<QAction*>("showMoveGizmo")->setChecked(true);
+            visualChecks = checkMove(window) && visualChecks;
+            visualChecks = checkHistory(window) && visualChecks;
+            visualChecks = checkObjectActions(window) && visualChecks;
+            visualChecks = checkProject(window) && visualChecks;
             auto* viewport = window.viewport();
             bool passed = viewport && viewport->isValid() && viewport->renderedFrames >= 100
                 && visualChecks && imageChecks == 3

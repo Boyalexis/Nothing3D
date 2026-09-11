@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/ExampleCheck.h"
 #include "ui/DimensionCheck.h"
 #include <QStyleOptionSpinBox>
 #include <QScrollBar>
@@ -147,7 +148,7 @@ inline bool checkTransforms(MainWindow& window) {
     }
     type(editors[0],QStringLiteral("888")); window.selectObject(0); key(editors[0],Qt::Key_Return);
     check(!panel->isEnabled() && panel->isHidden(),"deselection disables pending transform");
-    examples->setCurrentIndex(3); editors[1]->setValue(700);
+    discardAndSelectExample(window,examples,3); editors[1]->setValue(700);
     check(window.scene().objects().empty(),"empty scene cannot be edited");
     examples->setCurrentIndex(0); window.selectObject(box);
     check(editors[0]->value() == 0 && editors[5]->value() == 0,"scene replacement resets fields");

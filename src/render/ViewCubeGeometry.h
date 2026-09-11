@@ -70,14 +70,14 @@ inline Labels labels() {
     for(size_t i=0;i<4;++i) {
         result.first[i]=uint32_t(result.mesh.size());
         text(result.mesh,QString::fromLatin1(names[i]),{}, {0.42f,0,0},{0,-0.11f,0},
-             {0.83f,0.90f,0.97f},{0.04f,0.09f,0.16f});
+             {0.20f,0.30f,0.43f},{0.94f,0.96f,0.98f});
         result.count[i]=uint32_t(result.mesh.size())-result.first[i];
     }
     return result;
 }
 inline Mesh home() {
     Mesh mesh;
-    const QVector3D color{0.90f,0.94f,0.99f};
+    const QVector3D color{0.20f,0.30f,0.43f};
     triangle(mesh,{-0.085f,0,0},{0,-0.075f,0},{0.085f,0,0},color);
     quad(mesh,{-0.035f,0.035f,0},{0.022f,0,0},{0,0.04f,0},color);
     quad(mesh,{0.035f,0.035f,0},{0.022f,0,0},{0,0.04f,0},color);

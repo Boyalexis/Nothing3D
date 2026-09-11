@@ -24,6 +24,7 @@ public:
     {
         functions_ = window_->vulkanInstance()->deviceFunctions(window_->device());
         primitives_.initialize(window_, SceneGeometry::vertices());
+        gizmo_.initialize(window_, MoveGizmo::vertices(), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false, false);
         previewMesh_.initialize(window_, SceneGeometry::wireVertices(), VK_PRIMITIVE_TOPOLOGY_LINE_LIST, true, false);
         const std::array<BoxVertex,3> screen{{{{-1,-1,0},{0,0,0}},{{3,-1,0},{0,0,0}},{{-1,3,0},{0,0,0}}}};
         ground_.initialize(window_,screen,VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,true,false);
@@ -42,6 +43,7 @@ public:
     {
         sync_.initialize(window_);
         primitives_.createPipeline();
+        gizmo_.createPipeline();
         previewMesh_.createPipeline();
         gridOnly_.createPipeline(true,1); axesOnly_.createPipeline(true,2);
         ground_.createPipeline(true); axis_.createPipeline(); compass_.createPipeline(); letters_.createPipeline(); home_.createPipeline();
@@ -60,7 +62,7 @@ public:
         // Qt owns the swapchain and synchronization. We record the actual
         // Vulkan commands that clear its color and depth attachments.
         VkClearValue clears[2]{};
-        clears[0].color = {{0.04f, 0.09f, 0.16f, 1.0f}};
+        clears[0].color = {{0.94f, 0.96f, 0.98f, 1.0f}};
         clears[1].depthStencil = {1.0f, 0};
         VkRenderPassBeginInfo pass{};
         pass.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -73,7 +75,10 @@ public:
         const auto command = window_->currentCommandBuffer();
         functions_->vkCmdBeginRenderPass(command, &pass, VK_SUBPASS_CONTENTS_INLINE);
         const auto sceneView = window_->modelViewProjection();
-        for (const auto& object : window_->scene().objects()) {
+        // Draw the selected object first so an exact in-place copy retains its
+        // highlight when equal-depth fragments of the original are rejected.
+        for (const bool selectedPass : {true,false}) for (const auto& object : window_->scene().objects()) {
+            if ((object.id==window_->selectedObject())!=selectedPass) continue;
             const auto renderObject = SceneGeometry::prepare(object);
             const bool box = renderObject.primitive == SceneGeometry::Primitive::Box;
             // Push constants are recorded into this frame's command buffer.
@@ -95,6 +100,11 @@ public:
             const bool box = object.primitive == SceneGeometry::Primitive::Box;
             previewMesh_.draw(command,sceneView*object.model,{},box ? 0 : SceneGeometry::boxCount*2,
                               (box ? SceneGeometry::boxCount : SceneGeometry::cylinderCount)*2);
+        }
+        if (const auto handles = window_->moveGizmo()) {
+            for (int axis=0;axis<3;++axis) if (handles->visible[axis])
+                gizmo_.draw(command,sceneView*handles->model,{},axis*MoveGizmo::verticesPerAxis,
+                            MoveGizmo::verticesPerAxis,axis==window_->activeMoveAxis());
         }
         if(window_->showCompass) {
         const auto corner = Guides::compassRect(size,window_->devicePixelRatio());
@@ -121,18 +131,20 @@ public:
     }
 
     void releaseResources() override {
+        gizmo_.release();
         previewMesh_.release();
         gridOnly_.release(); axesOnly_.release();
         primitives_.release(); ground_.release(); axis_.release(); compass_.release(); letters_.release(); home_.release(); functions_ = nullptr;
     }
     void releaseSwapChainResources() override {
+        gizmo_.releasePipeline();
         previewMesh_.releasePipeline();
         gridOnly_.releasePipeline(); axesOnly_.releasePipeline();
         primitives_.releasePipeline(); ground_.releasePipeline(); axis_.releasePipeline(); compass_.releasePipeline(); letters_.releasePipeline(); home_.releasePipeline();
         sync_.release(window_);
     }
 private:
-    ColorMesh primitives_, previewMesh_, ground_, axis_, compass_, letters_, home_;
+    ColorMesh primitives_, previewMesh_, gizmo_, ground_, axis_, compass_, letters_, home_;
     ColorMesh gridOnly_, axesOnly_;
     ViewCube::Labels labelGeometry_;
     QtPresentSync sync_;
@@ -148,6 +160,7 @@ QVulkanWindowRenderer* VulkanViewport::createRenderer()
 
 void VulkanViewport::setScene(n3d::Scene scene)
 {
+    cancelMove();
     cancelPlacement();
     scene_ = std::move(scene);
     clickPending_ = false;
@@ -157,6 +170,7 @@ void VulkanViewport::setScene(n3d::Scene scene)
 
 void VulkanViewport::beginPlacement(const n3d::ObjectData& object)
 {
+    cancelMove(); hoverAxis_ = -1;
     n3d::Scene validation;
     validation.add(object);
     animation_.stop(); modelAngle = 0;
@@ -200,6 +214,11 @@ void VulkanViewport::updatePlacement(QPointF position, Qt::KeyboardModifiers mod
 
 bool VulkanViewport::event(QEvent* event)
 {
+    if (isMoving() && (event->type()==QEvent::FocusOut || event->type()==QEvent::Resize
+        || event->type()==QEvent::Hide || event->type()==QEvent::UngrabMouse)) cancelMove();
+    if (event->type()==QEvent::Leave && !isMoving() && !isPlacing()) {
+        hoverAxis_=-1; unsetCursor(); requestUpdate();
+    }
     if (isPlacing() && (event->type() == QEvent::Leave || event->type() == QEvent::Resize)) {
         preview_.reset(); placementMouse_.reset(); requestUpdate();
     }
@@ -210,6 +229,7 @@ void VulkanViewport::selectObject(n3d::ObjectId id)
 {
     if (!scene_.find(id)) id = 0;
     if (selectedObject_ == id) return;
+    cancelMove(); hoverAxis_ = -1; unsetCursor();
     selectedObject_ = id;
     emit selectionChanged(id);
     requestUpdate();
@@ -217,6 +237,7 @@ void VulkanViewport::selectObject(n3d::ObjectId id)
 
 bool VulkanViewport::updateObject(n3d::ObjectId id, const n3d::ObjectData& data)
 {
+    cancelMove();
     if (!scene_.update(id, data)) return false;
     clickPending_ = false;
     requestUpdate();
@@ -245,6 +266,7 @@ QMatrix4x4 VulkanViewport::modelViewProjection()
 
 void VulkanViewport::resetView()
 {
+    cancelMove(); hoverAxis_ = -1;
     camera.reset(); modelAngle = 0;
     animation_.stop(); emit rotationChanged(false); requestUpdate();
     if (placementMouse_) updatePlacement(*placementMouse_,QGuiApplication::keyboardModifiers());
@@ -252,7 +274,7 @@ void VulkanViewport::resetView()
 
 void VulkanViewport::toggleRotation()
 {
-    if (isPlacing()) return;
+    if (isPlacing() || isMoving()) return;
     if (animation_.isActive()) animation_.stop();
     else { elapsed_.start(); animation_.start(); }
     emit rotationChanged(animation_.isActive());
@@ -260,6 +282,14 @@ void VulkanViewport::toggleRotation()
 
 void VulkanViewport::mousePressEvent(QMouseEvent* event)
 {
+    if (cancelledMovePress_) {
+        if (event->button()==Qt::LeftButton) cancelledMovePress_=false;
+        else { event->accept(); return; }
+    }
+    if (isMoving()) {
+        if (event->button()==Qt::RightButton) cancelMove();
+        event->accept(); return;
+    }
     clickPending_ = false;
     overlayPress_ = false;
     if(event->button()==Qt::LeftButton && showCompass) {
@@ -272,6 +302,25 @@ void VulkanViewport::mousePressEvent(QMouseEvent* event)
         }
         if (overlayPress_) { event->accept(); return; }
     }
+    if (event->button()==Qt::LeftButton && event->buttons()==Qt::LeftButton) {
+        if (const auto handles=moveGizmo()) {
+            const int axis=MoveGizmo::hit(*handles,event->position());
+            const auto* object=scene_.find(selectedObject_);
+            if (axis>=0 && object) {
+                const auto drag=MoveGizmo::begin(modelViewProjection(),QSizeF(width(),height()),object->data.positionMm,axis,event->position());
+                if (drag) {
+                    requestActivate();
+                    animation_.stop(); emit rotationChanged(false);
+                    moveOriginal_=object->data; moveObject_=object->id;
+                    moveMouse_=event->position(); move_=drag; hoverAxis_=axis;
+                    setMouseGrabEnabled(true); setCursor(Qt::SizeAllCursor);
+                    emit moveChanged(true);
+                    emit placementStatus(QStringLiteral("沿 %1 轴移动 · Ctrl：100 mm 吸附 · Esc / 右键：恢复起点").arg(QStringLiteral("XYZ").at(axis)));
+                    requestUpdate(); event->accept(); return;
+                }
+            }
+        }
+    }
     if (event->button() == Qt::MiddleButton || event->button() == Qt::LeftButton) {
         previousMouse_ = pressPosition_ = event->position();
         clickPending_ = event->button() == Qt::LeftButton && !event->buttons().testFlag(Qt::MiddleButton);
@@ -282,6 +331,15 @@ void VulkanViewport::mousePressEvent(QMouseEvent* event)
 
 void VulkanViewport::mouseMoveEvent(QMouseEvent* event)
 {
+    if (cancelledMovePress_) {
+        if (!event->buttons().testFlag(Qt::LeftButton)) cancelledMovePress_=false;
+        else { event->accept(); return; }
+    }
+    if (isMoving()) {
+        if (event->buttons().testFlag(Qt::LeftButton)) updateMove(event->position(),event->modifiers());
+        else cancelMove();
+        event->accept(); return;
+    }
     if (isPlacing() && event->buttons() == Qt::NoButton) {
         updatePlacement(event->position(),event->modifiers()); event->accept(); return;
     }
@@ -302,11 +360,30 @@ void VulkanViewport::mouseMoveEvent(QMouseEvent* event)
         if (isPlacing()) updatePlacement(event->position(),event->modifiers());
         requestUpdate(); event->accept(); return;
     }
+    if (event->buttons()==Qt::NoButton && !isPlacing()) {
+        int hover=-1;
+        const auto corner=Guides::compassRect(swapChainImageSize(),devicePixelRatio());
+        if (!showCompass || !corner.contains((event->position()*devicePixelRatio()).toPoint()))
+            if (const auto handles=moveGizmo()) hover=MoveGizmo::hit(*handles,event->position());
+        if (hover!=hoverAxis_) { hoverAxis_=hover; requestUpdate(); }
+        if (hover>=0) setCursor(Qt::SizeAllCursor); else unsetCursor();
+    }
     QVulkanWindow::mouseMoveEvent(event);
 }
 
 void VulkanViewport::mouseReleaseEvent(QMouseEvent* event)
 {
+    if (cancelledMovePress_) {
+        if (event->button()==Qt::LeftButton) cancelledMovePress_=false;
+        event->accept(); return;
+    }
+    if (isMoving()) {
+        if (event->button()==Qt::LeftButton) {
+            if (event->position()!=moveMouse_) updateMove(event->position(),event->modifiers());
+            finishMove();
+        }
+        event->accept(); return;
+    }
     if (event->button() == Qt::MiddleButton || event->button() == Qt::LeftButton) {
         if (event->button() == Qt::LeftButton && clickPending_ && !overlayPress_
             && event->buttons() == Qt::NoButton
@@ -331,6 +408,7 @@ void VulkanViewport::mouseReleaseEvent(QMouseEvent* event)
 
 void VulkanViewport::wheelEvent(QWheelEvent* event)
 {
+    if (isMoving() || cancelledMovePress_) { event->accept(); return; }
     camera.zoom(float(event->angleDelta().y())/120.0f);
     if (isPlacing()) updatePlacement(event->position(),event->modifiers());
     requestUpdate(); event->accept();
@@ -338,7 +416,10 @@ void VulkanViewport::wheelEvent(QWheelEvent* event)
 
 void VulkanViewport::keyPressEvent(QKeyEvent* event)
 {
-    if (event->key() == Qt::Key_Escape) { clickPending_ = false; if (isPlacing()) cancelPlacement(); else selectObject(0); event->accept(); return; }
+    if (event->key() == Qt::Key_Escape) { clickPending_ = false; if (isMoving()) cancelMove(); else if (isPlacing()) cancelPlacement(); else selectObject(0); event->accept(); return; }
+    if (isMoving() && event->key()==Qt::Key_Control) {
+        updateMove(moveMouse_,event->modifiers() | Qt::ControlModifier); event->accept(); return;
+    }
     if (isPlacing() && event->key() == Qt::Key_Control && placementMouse_) {
         updatePlacement(*placementMouse_,event->modifiers() | Qt::ControlModifier); event->accept(); return;
     }
@@ -349,8 +430,56 @@ void VulkanViewport::keyPressEvent(QKeyEvent* event)
 
 void VulkanViewport::keyReleaseEvent(QKeyEvent* event)
 {
+    if (isMoving() && event->key()==Qt::Key_Control) {
+        updateMove(moveMouse_,event->modifiers() & ~Qt::ControlModifier); event->accept(); return;
+    }
     if (isPlacing() && event->key() == Qt::Key_Control && placementMouse_) {
         updatePlacement(*placementMouse_,event->modifiers() & ~Qt::ControlModifier); event->accept(); return;
     }
     QVulkanWindow::keyReleaseEvent(event);
+}
+
+std::optional<MoveGizmo::Layout> VulkanViewport::moveGizmo()
+{
+    const auto* object=scene_.find(selectedObject_);
+    if (!showMoveGizmo || isPlacing() || !object) return {};
+    return MoveGizmo::layout(modelViewProjection(),object->data.positionMm,QSizeF(width(),height()));
+}
+
+void VulkanViewport::publishMove(const n3d::ObjectData& data)
+{
+    const auto* object=scene_.find(moveObject_);
+    if (!object || object->data==data) return;
+    scene_.update(moveObject_,data);
+    emit objectMoved(moveObject_,data);
+    requestUpdate();
+}
+
+void VulkanViewport::updateMove(QPointF position, Qt::KeyboardModifiers modifiers)
+{
+    if (!move_) return;
+    moveMouse_=position;
+    const auto point=move_->position(position,modifiers.testFlag(Qt::ControlModifier));
+    if (!point) return;
+    auto data=moveOriginal_; data.positionMm=*point;
+    publishMove(data);
+    emit placementStatus(QStringLiteral("沿 %1 轴移动：(%2, %3, %4) mm · Ctrl：100 mm 吸附 · Esc：恢复起点")
+        .arg(QStringLiteral("XYZ").at(move_->axisIndex)).arg(point->x,0,'f',2).arg(point->y,0,'f',2).arg(point->z,0,'f',2));
+}
+
+void VulkanViewport::finishMove()
+{
+    if (!move_) return;
+    move_.reset(); moveObject_=0; hoverAxis_=-1; clickPending_=false;
+    setMouseGrabEnabled(false); unsetCursor(); emit moveChanged(false); requestUpdate();
+}
+
+void VulkanViewport::cancelMove()
+{
+    if (!move_) return;
+    publishMove(moveOriginal_);
+    finishMove();
+    // Esc/right-click may arrive while the left button is still held. Consume
+    // the rest of that press so it cannot turn into a camera gesture or click.
+    cancelledMovePress_=true;
 }

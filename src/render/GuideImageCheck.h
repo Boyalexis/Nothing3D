@@ -9,8 +9,8 @@ inline bool hasInfiniteGrid(const QImage& image,const QRect& corner) {
         if(corner.contains(x,y)) continue;
         const auto c=image.pixelColor(x,y);
         // Neutral blue-grey grid samples, excluding box and colored world axes.
-        if(c.red()>16 && c.red()<85 && c.green()>c.red()+8
-            && c.blue()>c.green()+10 && c.blue()<146) ++samples;
+        if(c.red()>160 && c.red()<228 && c.green()>c.red()+3
+            && c.blue()>c.green()+3 && c.blue()<244) ++samples;
     }
     return samples>100;
 }
@@ -35,7 +35,7 @@ inline bool hasGuides(const QImage& image, const QRect& corner, const QMatrix4x4
         ring+=matches(c,{0.38f,0.52f,0.68f});
         ink+=matches(c,{0.20f,0.30f,0.43f});
         if(x>corner.x()+corner.width()*0.8 && y<corner.y()+corner.height()*0.2)
-            home+=matches(c,{0.90f,0.94f,0.99f});
+            home+=matches(c,{0.20f,0.30f,0.43f});
     }
     return ring>25 && home>8 && ink>10;
 }

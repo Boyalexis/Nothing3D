@@ -15,6 +15,7 @@ qt_standard_project_setup()
 qt_add_executable(Nothing3D WIN32
     src/app/main.cpp
     src/ui/MainWindow.cpp
+    src/ui/ProjectFiles.cpp
     src/ui/Ribbon.cpp
     src/ui/MainWindow.h
     src/render/VulkanViewport.cpp
@@ -52,6 +53,40 @@ if(MSVC)
 endif()
 
 enable_testing()
+add_executable(file_tests tests/file_tests.cpp)
+target_include_directories(file_tests PRIVATE src)
+target_link_libraries(file_tests PRIVATE Qt6::Core)
+if(MSVC)
+    target_compile_options(file_tests PRIVATE /W4 /permissive- /utf-8)
+endif()
+add_test(NAME scene_file COMMAND ${CMAKE_COMMAND} -E env
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}" $<TARGET_FILE:file_tests>)
+add_test(NAME project_editor COMMAND ${CMAKE_COMMAND} -E env
+    "QT_QPA_PLATFORM=offscreen"
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+    $<TARGET_FILE:Nothing3D> --project-test)
+add_test(NAME object_actions COMMAND ${CMAKE_COMMAND} -E env
+    "QT_QPA_PLATFORM=offscreen"
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+    $<TARGET_FILE:Nothing3D> --object-actions-test)
+add_executable(history_tests tests/history_tests.cpp)
+target_include_directories(history_tests PRIVATE src)
+if(MSVC)
+    target_compile_options(history_tests PRIVATE /W4 /permissive- /utf-8)
+endif()
+add_test(NAME scene_history COMMAND history_tests)
+add_test(NAME history_editor COMMAND ${CMAKE_COMMAND} -E env
+    "QT_QPA_PLATFORM=offscreen"
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+    $<TARGET_FILE:Nothing3D> --history-test)
+add_executable(move_tests tests/move_tests.cpp)
+target_include_directories(move_tests PRIVATE src)
+target_link_libraries(move_tests PRIVATE Qt6::Gui)
+if(MSVC)
+    target_compile_options(move_tests PRIVATE /W4 /permissive- /utf-8)
+endif()
+add_test(NAME move_gizmo COMMAND ${CMAKE_COMMAND} -E env
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}" $<TARGET_FILE:move_tests>)
 add_executable(placement_tests tests/placement_tests.cpp)
 target_include_directories(placement_tests PRIVATE src)
 target_link_libraries(placement_tests PRIVATE Qt6::Gui)
@@ -99,3 +134,8 @@ add_test(
         "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
         $<TARGET_FILE:Nothing3D> --smoke-test
 )
+
+add_test(NAME ui_layout COMMAND ${CMAKE_COMMAND} -E env
+    "QT_QPA_PLATFORM=offscreen"
+    "PATH=$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}"
+    $<TARGET_FILE:Nothing3D> --ui-layout-test)

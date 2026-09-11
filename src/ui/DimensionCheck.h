@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/ExampleCheck.h"
 #include "ui/SceneCheck.h"
 #include "render/ScenePicking.h"
 #include <QDoubleSpinBox>
@@ -136,7 +137,7 @@ inline bool checkDimensions(MainWindow& window) {
     window.selectObject(0);
     key(height,Qt::Key_Return);
     check(window.selectedObject() == 0 && !panel->isEnabled(),"deselection disables pending edits");
-    examples->setCurrentIndex(3);
+    discardAndSelectExample(window,examples,3);
     width->setValue(300);
     check(window.scene().objects().empty(),"empty scene cannot be edited");
     examples->setCurrentIndex(0);

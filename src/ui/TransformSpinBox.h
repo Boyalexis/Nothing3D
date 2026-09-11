@@ -26,7 +26,7 @@ public:
         setStyle(stepStyle);
         // An explicitly assigned proxy style needs a local stylesheet on Windows.
         setStyleSheet(QStringLiteral(
-            "QDoubleSpinBox { background: #11161d; color: #dbe2ea; border: 1px solid #354259; border-radius: 3px; padding: 3px; }"
+            "QDoubleSpinBox { background: #ffffff; color: #14284b; border: 1px solid #c8d4e5; border-radius: 3px; padding: 3px; }"
             "QDoubleSpinBox:focus { border-color: #5c9cff; }"));
         setDecimals(2);
         setRange(rotation ? -360000 : -1e9, rotation ? 360000 : 1e9);

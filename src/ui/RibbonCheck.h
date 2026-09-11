@@ -9,7 +9,7 @@
 
 inline bool checkRibbon(QWidget& window,VulkanViewport* viewport) {
     auto* tabs=window.findChild<QTabWidget*>("ribbonTabs");
-    if(!tabs || tabs->count()!=3 || !viewport) return false;
+    if(!tabs || tabs->count()!=4 || !viewport) return false;
     bool okay=true;
     auto click=[&](const char* id) {
         auto* action=window.findChild<QAction*>(id);

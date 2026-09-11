@@ -24,9 +24,9 @@ void main() {
     float small=lines(p.xz,0.1);
     float medium=lines(p.xz,1.0);
     float large=lines(p.xz,10.0);
-    float alpha=max(small*0.3,max(medium*0.55,large*0.7));
+    float alpha=max(small*0.16,max(medium*0.32,large*0.48));
     if(gridMode==2) alpha=0;
-    vec3 color=vec3(0.32,0.43,0.56);
+    vec3 color=vec3(0.42,0.49,0.58);
     vec2 width=max(fwidth(p.xz),vec2(0.00001));
     float xAxis=1.0-smoothstep(0.5,1.5,abs(p.z)/width.y);
     float zAxis=1.0-smoothstep(0.5,1.5,abs(p.x)/width.x);

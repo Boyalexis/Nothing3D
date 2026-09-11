@@ -16,9 +16,26 @@ inline bool hasSceneMesh(const QImage& image, const QMatrix4x4& mvp, const QRect
     if (image.width()<100 || image.height()<100) return false;
     int cylinderSamples=0;
     int boxSamples=0, backgroundSamples=0, overlaps=0;
-    for (int row=1; row<24; ++row) for (int col=1; col<24; ++col) {
-        const int px=image.width()*col/24, py=image.height()*row/24;
+    // The solid reference does not contain guide lines. Reserve a thin band
+    // around the projected world Y axis (also unchanged by preview Y rotation).
+    // Separate guide-image checks verify its colour and visibility.
+    const auto axis0=mvp*QVector4D(0,0,0,1), axis1=mvp*QVector4D(0,1,0,1);
+    const bool axisVisible=axis0.w()>0 && axis1.w()>0;
+    const QPointF axisStart((axis0.x()/axis0.w()+1)*image.width()/2,(axis0.y()/axis0.w()+1)*image.height()/2);
+    const QPointF axisEnd((axis1.x()/axis1.w()+1)*image.width()/2,(axis1.y()/axis1.w()+1)*image.height()/2);
+    const auto direction=axisEnd-axisStart;
+    const auto lengthSquared=QPointF::dotProduct(direction,direction);
+    // Denser coverage keeps the existing minimum counts meaningful in the
+    // shorter viewport above the command panel, without lowering thresholds.
+    constexpr int steps=32;
+    for (int row=1; row<steps; ++row) for (int col=1; col<steps; ++col) {
+        const int px=image.width()*col/steps, py=image.height()*row/steps;
         if (overlay.contains(px,py)) continue;
+        if (axisVisible && lengthSquared>1) {
+            const auto offset=QPointF(px+.5,py+.5)-axisStart;
+            const double cross=offset.x()*direction.y()-offset.y()*direction.x();
+            if (cross*cross<2.25*lengthSquared) continue;
+        }
         const float x=2*(float(px)+0.5f)/float(image.width())-1;
         const float y=2*(float(py)+0.5f)/float(image.height())-1;
         float nearest=2, edge=0;
@@ -57,13 +74,13 @@ inline bool hasSceneMesh(const QImage& image, const QMatrix4x4& mvp, const QRect
                 qInfo("Box mismatch at %d,%d: %d %d %d",px,py,actual.red(),actual.green(),actual.blue()); return false;
             }
         } else {
-            if (std::abs(actual.red()-10)<=3 && std::abs(actual.green()-23)<=3 && std::abs(actual.blue()-41)<=3) {
+            if (std::abs(actual.red()-240)<=3 && std::abs(actual.green()-245)<=3 && std::abs(actual.blue()-250)<=3) {
                 ++backgroundSamples;
             } else {
                 // Shader first mixes grid/axis colors, then blends over the clear color.
                 // Check the resulting color triangle instead of a single palette segment.
-                const QVector3D background(0.04f*255,0.09f*255,0.16f*255);
-                const QVector3D grid=QVector3D(0.32f,0.43f,0.56f)*255-background;
+                const QVector3D background(0.94f*255,0.96f*255,0.98f*255);
+                const QVector3D grid=QVector3D(0.42f,0.49f,0.58f)*255-background;
                 const QVector3D actualDelta=QVector3D(actual.red(),actual.green(),actual.blue())-background;
                 const QVector3D axes[]={{0.95f,0.22f,0.22f},{0.25f,0.85f,0.35f},{0.25f,0.55f,1.0f}};
                 bool guide=false;

@@ -7,6 +7,7 @@
 #include <utility>
 #include <variant>
 #include <vector>
+#include <limits>
 
 namespace n3d {
 using ObjectId = std::uint64_t;
@@ -38,6 +39,11 @@ struct SceneObject {
 
 class Scene {
 public:
+    ObjectId nextObjectId() const { return nextId_; }
+    void reserveObjectIdsUntil(ObjectId next) {
+        if (!next || next<nextId_) throw std::invalid_argument("Invalid next object ID");
+        nextId_=next;
+    }
     const std::vector<SceneObject>& objects() const { return objects_; }
     const SceneObject* find(ObjectId id) const {
         const auto it = std::find_if(objects_.begin(), objects_.end(),
@@ -46,6 +52,7 @@ public:
     }
     ObjectId add(ObjectData data) {
         validate(data);
+        if (nextId_ == std::numeric_limits<ObjectId>::max()) throw std::overflow_error("Scene IDs exhausted");
         const auto id = nextId_;
         objects_.push_back({id, std::move(data)});
         ++nextId_;
@@ -61,6 +68,15 @@ public:
     }
     bool remove(ObjectId id) {
         return std::erase_if(objects_, [id](const auto& object) { return object.id == id; }) != 0;
+    }
+    // Restore a command's object identity and list position without recycling IDs.
+    void restore(SceneObject object, size_t index) {
+        validate(object.data);
+        if (!object.id || object.id==std::numeric_limits<ObjectId>::max() || find(object.id) || index>objects_.size())
+            throw std::invalid_argument("Invalid restored object");
+        const auto next=std::max(nextId_,object.id+1);
+        objects_.insert(objects_.begin()+std::ptrdiff_t(index),std::move(object));
+        nextId_=next;
     }
     void clear() { objects_.clear(); } // Never recycle IDs within this scene.
 

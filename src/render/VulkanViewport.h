@@ -4,6 +4,7 @@
 #include <QElapsedTimer>
 #include "render/OrbitCamera.h"
 #include "scene/Scene.h"
+#include "render/MoveGizmo.h"
 #include <optional>
 
 class VulkanViewport final : public QVulkanWindow
@@ -22,11 +23,15 @@ public:
     void selectObject(n3d::ObjectId id);
     void beginPlacement(const n3d::ObjectData& object);
     void cancelPlacement();
+    void cancelMove();
+    bool isMoving() const { return move_.has_value(); }
+    int activeMoveAxis() const { return move_ ? move_->axisIndex : hoverAxis_; }
+    std::optional<MoveGizmo::Layout> moveGizmo();
     bool isPlacing() const { return placement_.has_value(); }
     const std::optional<n3d::ObjectData>& placementPreview() const { return preview_; }
     enum class Navigation { Orbit, Pan, Zoom };
     Navigation navigation = Navigation::Orbit;
-    bool showGrid = true, showAxes = true, showCompass = true;
+    bool showGrid = true, showAxes = true, showCompass = true, showMoveGizmo = true;
     OrbitCamera camera;
     float modelAngle = 0;
     int renderedFrames = 0;
@@ -38,6 +43,8 @@ signals:
     void placementChanged(bool active);
     void placementStatus(const QString& message);
     void objectPlaced(const n3d::ObjectData& object);
+    void objectMoved(quint64 id, const n3d::ObjectData& object);
+    void moveChanged(bool active);
 protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
@@ -47,6 +54,15 @@ protected:
     void keyReleaseEvent(QKeyEvent* event) override;
     bool event(QEvent* event) override;
 private:
+    void updateMove(QPointF position, Qt::KeyboardModifiers modifiers);
+    void finishMove();
+    void publishMove(const n3d::ObjectData& data);
+    std::optional<MoveGizmo::Drag> move_;
+    n3d::ObjectData moveOriginal_;
+    n3d::ObjectId moveObject_ = 0;
+    QPointF moveMouse_;
+    int hoverAxis_ = -1;
+    bool cancelledMovePress_ = false;
     void updatePlacement(QPointF position, Qt::KeyboardModifiers modifiers);
     std::optional<n3d::ObjectData> placement_, preview_;
     std::optional<QPointF> placementMouse_;

@@ -134,7 +134,7 @@ inline bool checkCreation(MainWindow& window) {
     check(!viewport->isPlacing(),"selecting another object cancels placement");
     if (auto* d=dialog(boxAction)) confirm(d);
     auto* examples=window.findChild<QComboBox*>("sceneExamples");
-    examples->setCurrentIndex(3);
+    discardAndSelectExample(window,examples,3);
     check(!viewport->isPlacing() && window.scene().objects().empty(),"scene replacement cancels placement");
     viewport->showGrid=false;
     if (auto* d=dialog(boxAction)) confirm(d);
@@ -142,7 +142,7 @@ inline bool checkCreation(MainWindow& window) {
     check(window.scene().objects().size()==1 && window.selectedObject()!=0,"empty scene and hidden grid allow ground placement");
     viewport->showGrid=true;
     pixels("empty-scene-created");
-    examples->setCurrentIndex(0); tabs->setCurrentIndex(0);
+    discardAndSelectExample(window,examples,0); tabs->setCurrentIndex(0);
     window.resize(1200,740); QCoreApplication::processEvents(); viewport->resetView();
     qInfo("Creation overall: %d",int(okay));
     return okay;

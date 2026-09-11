@@ -3,6 +3,8 @@
 #include <QMainWindow>
 #include <QPointer>
 #include "scene/Scene.h"
+#include "scene/SceneHistory.h"
+class QAction;
 class QVulkanInstance;
 class VulkanViewport;
 class QTreeWidget;
@@ -19,8 +21,42 @@ public:
     void setScene(n3d::Scene scene);
     void selectObject(n3d::ObjectId id);
     n3d::ObjectId selectedObject() const { return selectedObject_; }
+    const n3d::SceneHistory& history() const { return history_; }
+    void undo();
+    void redo();
+    void duplicateSelected();
+    void deleteSelected();
+    bool saveProjectTo(const QString& path,QString* error=nullptr);
+    bool openProjectFrom(const QString& path,QString* error=nullptr);
+    bool hasUnsavedChanges() const { return !history_.isClean(); }
+    QString projectPath() const { return projectPath_; }
+
+protected:
+    void closeEvent(QCloseEvent* event) override;
+    bool eventFilter(QObject* watched,QEvent* event) override;
 
 private:
+    void openProjectDialog();
+    bool saveProject(bool saveAs=false);
+    bool confirmReplacement();
+    void commitPendingProperties();
+    void cancelTransientEdit();
+    void updateProjectActions();
+    QString projectPath_;
+    int exampleIndex_=0;
+    QAction* openAction_=nullptr;
+    QAction* saveAction_=nullptr;
+    QAction* saveAsAction_=nullptr;
+    void syncScene(n3d::ObjectId selection);
+    void updateHistoryActions();
+    bool historyBusy() const;
+    void replayHistory(bool redo);
+    n3d::SceneHistory history_;
+    std::optional<n3d::SceneObject> moveBefore_;
+    QAction* undoAction_=nullptr;
+    QAction* redoAction_=nullptr;
+    QAction* duplicateAction_=nullptr;
+    QAction* deleteAction_=nullptr;
     void showCreationDialog(bool cylinder);
     void addCreatedObject(n3d::ObjectData object);
     QPointer<CreationDialog> creationDialog_;
