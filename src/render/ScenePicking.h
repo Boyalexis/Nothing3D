@@ -3,8 +3,27 @@
 #include <QPointF>
 #include <QSizeF>
 #include <optional>
+#include <algorithm>
 
 namespace ScenePicking {
+// Both unit primitives fit this local box. This is only a conservative rejection;
+// cylinder corners and the final nearest surface still use exact mesh triangles.
+inline bool intersectsBounds(QVector3D origin,QVector3D direction) {
+    double enter=0,leave=1;
+    for(int axis=0;axis<3;++axis) {
+        const double low=(axis==1 ? 0.0 : -.5)-1e-5;
+        const double high=(axis==1 ? 1.0 : .5)+1e-5;
+        if(direction[axis]==0) {
+            if(origin[axis]<low || origin[axis]>high) return false;
+            continue;
+        }
+        double a=(low-origin[axis])/direction[axis], b=(high-origin[axis])/direction[axis];
+        if(a>b) std::swap(a,b);
+        enter=std::max(enter,a); leave=std::min(leave,b);
+        if(enter>leave) return false;
+    }
+    return true;
+}
 // Segment parameter is preserved through each object's inverse transform.
 // This makes hits comparable even when objects have different sizes.
 inline std::optional<float> triangleHit(QVector3D origin, QVector3D direction,
@@ -50,6 +69,7 @@ inline n3d::ObjectId pick(const n3d::Scene& scene, const QMatrix4x4& viewProject
         if (!invertible) continue;
         const auto origin = local.map(nearPoint);
         const auto direction = local.map(farPoint)-origin; // Do not normalize.
+        if(!intersectsBounds(origin,direction)) continue;
         const bool box = render.primitive == SceneGeometry::Primitive::Box;
         const auto first = box ? 0u : SceneGeometry::boxCount;
         const auto count = box ? SceneGeometry::boxCount : SceneGeometry::cylinderCount;

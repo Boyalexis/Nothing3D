@@ -1,4 +1,6 @@
 #include "render/ScenePicking.h"
+#include "scene/PerformanceScene.h"
+#include "render/OrbitCamera.h"
 #include <cstdio>
 
 int main() {
@@ -58,6 +60,21 @@ int main() {
     scene.clear();
     const auto enclosing = scene.add({"inside", n3d::BoxParameters{20000,20000,20000}, {0,-10000,0}});
     check(ScenePicking::pick(scene,vp,{300,300},{600,600}) == enclosing, "camera inside object hits exit face");
+    check(ScenePicking::intersectsBounds({.5f,.5f,2},{0,0,-4}),"bounds includes grazing ray");
+    check(!ScenePicking::intersectsBounds({.6f,.5f,2},{0,0,-4}),"parallel ray outside bounds rejected");
+    check(ScenePicking::intersectsBounds({0,.5f,0},{0,0,4}),"bounds supports origin inside object");
+    check(!ScenePicking::intersectsBounds({0,.5f,2},{0,0,4}),"bounds rejects box behind segment");
+    const auto thousand=n3d::performanceScene();
+    check(thousand.objects().size()==1000,"repeatable 1000-object scene");
+    OrbitCamera camera; camera.standardView(OrbitCamera::StandardView::Top);
+    camera.target={0,0,0}; camera.distance=22;
+    const auto thousandVp=correction*camera.projection(1.5f)*camera.view();
+    for(size_t i=0;i<1000;i+=17) {
+        const auto& object=thousand.objects()[i];
+        const auto& p=object.data.positionMm;
+        const auto screen=project(thousandVp,{p.x/1000,0,p.z/1000},{900,600});
+        check(ScenePicking::pick(thousand,thousandVp,screen,{900,600})==object.id,"1000-object scene exact expected ID");
+    }
     if (!failures) std::puts("PASS: nearest triangle picking, cylinder caps, transforms, DPI, clipping");
     return failures ? 1 : 0;
 }

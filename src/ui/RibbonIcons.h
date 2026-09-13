@@ -8,7 +8,19 @@ inline QIcon ribbonIcon(const QString& id) {
     QPainter p(&pixels); p.setRenderHint(QPainter::Antialiasing);
     p.setPen(QPen(QColor("#164785"),1.8,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));
     auto line=[&](int x,int y,int a,int b) { p.drawLine(x,y,a,b); };
-    if(id=="openProject") {
+    if(id=="fitScene") {
+        p.drawRect(QRectF(10,10,12,12));
+        line(3,11,3,3); line(3,3,11,3); line(21,3,29,3); line(29,3,29,11);
+        line(3,21,3,29); line(3,29,11,29); line(21,29,29,29); line(29,29,29,21);
+    } else if(id=="perspectiveView" || id=="orthographicView") {
+        p.drawRect(QRectF(3,10,13,16));
+        p.drawRect(id=="perspectiveView" ? QRectF(21,7,7,9) : QRectF(16,3,13,16));
+        line(3,10,16,3); line(16,26,29,19);
+    } else if(id=="topView" || id=="frontView" || id=="rightView") {
+        p.drawRect(QRectF(7,7,18,18));
+        p.setBrush(QColor("#5c9cff"));
+        p.drawRect(id=="topView" ? QRectF(7,7,18,6) : id=="rightView" ? QRectF(19,7,6,18) : QRectF(7,19,18,6));
+    } else if(id=="openProject") {
         p.drawPolygon(QPolygonF{{3,9},{12,9},{15,6},{28,6},{28,26},{3,26}});
         line(7,15,25,15); line(7,15,3,26);
     } else if(id=="saveProject" || id=="saveProjectAs") {

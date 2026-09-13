@@ -1,0 +1,46 @@
+{
+    "boxes": 500,
+    "completed": true,
+    "configuration": "Release",
+    "cylinders": 500,
+    "device_matches_request": true,
+    "exit_code": 0,
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "height": 640,
+    "objects": 1000,
+    "pick_hits": 40,
+    "pick_p50_ms": 1.941,
+    "pick_p95_ms": 2.3964,
+    "samples": [
+        {
+            "cpu_record_p50_ms": 0.2874,
+            "cpu_record_p95_ms": 0.4118,
+            "frame_p50_ms": 13.3897,
+            "frame_p95_ms": 14.3349,
+            "frames": 447,
+            "mode": "perspective",
+            "seconds": 6.0084248,
+            "submitted_fps": 74.39553874419798,
+            "target_fps": 60,
+            "target_met": true
+        },
+        {
+            "cpu_record_p50_ms": 0.2828,
+            "cpu_record_p95_ms": 0.3211,
+            "frame_p50_ms": 13.3489,
+            "frame_p95_ms": 14.9251,
+            "frames": 446,
+            "mode": "orthographic",
+            "seconds": 5.9933849,
+            "submitted_fps": 74.4153775273135,
+            "target_fps": 60,
+            "target_met": true
+        }
+    ],
+    "scene_setup_ms": 108.0978,
+    "screenshot_saved": true,
+    "timing_scope": "CPU command recording and submitted-frame cadence; includes Qt/present pacing, not GPU timestamps",
+    "validation_enabled": false,
+    "validation_errors_including_shutdown": 0,
+    "width": 1045
+}

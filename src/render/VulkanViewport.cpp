@@ -7,6 +7,7 @@
 #include "render/InfiniteAxis.h"
 #include "render/SceneGeometry.h"
 #include "render/ScenePicking.h"
+#include "render/SceneFraming.h"
 #include "render/GroundPlacement.h"
 #include <QGuiApplication>
 #include <QStyleHints>
@@ -58,6 +59,7 @@ public:
 
     void startNextFrame() override
     {
+        QElapsedTimer recording; recording.start();
         sync_.selectImage(window_);
         // Qt owns the swapchain and synchronization. We record the actual
         // Vulkan commands that clear its color and depth attachments.
@@ -117,6 +119,15 @@ public:
         compass_.draw(command, orientation, corner);
         for (uint32_t i=0;i<4;++i) {
             const auto p=orientation*QVector4D(ViewCube::cardinalPositions[i],1);
+            // Side views can project opposite compass labels onto one spot.
+            // Keep the nearer label rather than drawing two overlapping letters.
+            bool obscured=false;
+            for(uint32_t j=0;j<4;++j) if(j!=i) {
+                const auto other=orientation*QVector4D(ViewCube::cardinalPositions[j],1);
+                const auto delta=p.toVector3DAffine()-other.toVector3DAffine();
+                if(std::abs(delta.x())<.16f && std::abs(delta.y())<.20f && delta.z()>0) obscured=true;
+            }
+            if(obscured) continue;
             QMatrix4x4 label;
             label.translate(p.x()/p.w(),p.y()/p.w(),p.z()/p.w());
             letters_.draw(command,label,corner,labelGeometry_.first[i],labelGeometry_.count[i]);
@@ -126,7 +137,12 @@ public:
         }
         functions_->vkCmdEndRenderPass(command);
         ++window_->renderedFrames;
+        const auto cpuNanoseconds=recording.nsecsElapsed();
         window_->frameReady();
+        if(window_->continuousRendering) {
+            emit window_->frameRecorded(cpuNanoseconds);
+            window_->requestUpdate();
+        }
         // Static scene: redraw on expose/resize, without a continuous busy loop.
     }
 
@@ -207,7 +223,7 @@ void VulkanViewport::updatePlacement(QPointF position, Qt::KeyboardModifiers mod
             .arg(modifiers.testFlag(Qt::ControlModifier) ? QStringLiteral("100 mm 吸附") : QStringLiteral("自由放置")));
     } else {
         setCursor(Qt::ForbiddenCursor);
-        emit placementStatus(QStringLiteral("此处无法放置，请移动到可见地面 · Esc：取消"));
+        emit placementStatus(QStringLiteral("此处无法放置，请切换顶视或转向可见地面 · Esc：取消"));
     }
     requestUpdate();
 }
@@ -268,8 +284,35 @@ void VulkanViewport::resetView()
 {
     cancelMove(); hoverAxis_ = -1;
     camera.reset(); modelAngle = 0;
+    emit projectionChanged(false);
     animation_.stop(); emit rotationChanged(false); requestUpdate();
     if (placementMouse_) updatePlacement(*placementMouse_,QGuiApplication::keyboardModifiers());
+}
+
+void VulkanViewport::setProjection(bool orthographic)
+{
+    cancelMove(); hoverAxis_ = -1;
+    camera.orthographic = orthographic;
+    emit projectionChanged(orthographic);
+    if (placementMouse_) updatePlacement(*placementMouse_,QGuiApplication::keyboardModifiers());
+    requestUpdate();
+}
+
+void VulkanViewport::fitScene()
+{
+    cancelMove(); hoverAxis_=-1;
+    animation_.stop(); modelAngle=0; emit rotationChanged(false);
+    frameScene(camera,scene_,float(width())/float(std::max(1,height())));
+    if(placementMouse_) updatePlacement(*placementMouse_,QGuiApplication::keyboardModifiers());
+    requestUpdate();
+}
+
+void VulkanViewport::setStandardView(OrbitCamera::StandardView view)
+{
+    cancelMove();
+    animation_.stop(); modelAngle = 0; emit rotationChanged(false);
+    camera.standardView(view);
+    setProjection(true);
 }
 
 void VulkanViewport::toggleRotation()

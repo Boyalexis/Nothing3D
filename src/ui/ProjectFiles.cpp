@@ -104,7 +104,7 @@ bool MainWindow::openProjectFrom(const QString& path,QString* error)
     auto* examples=findChild<QComboBox*>("sceneExamples");
     const QSignalBlocker blocked(examples);
     examples->setPlaceholderText(QStringLiteral("已打开工程")); examples->setCurrentIndex(-1); exampleIndex_=-1;
-    if (viewport_) viewport_->resetView();
+    if (viewport_) { viewport_->resetView(); viewport_->fitScene(); }
     updateHistoryActions();
     statusBar()->showMessage(QStringLiteral("已打开：%1").arg(projectPath_),5000);
     return true;

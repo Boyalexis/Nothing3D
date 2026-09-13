@@ -76,6 +76,9 @@ void MainWindow::buildToolbar() {
         connect(a,&QAction::triggered,this,[this,i] { if(viewport_) viewport_->navigation=static_cast<VulkanViewport::Navigation>(i); });
     }
     auto* observe=group(home,QStringLiteral("观察"));
+    auto* fitAll=button(observe,QStringLiteral("显示全部"),"fitScene",QStyle::SP_DirHomeIcon);
+    fitAll->setToolTip(QStringLiteral("按当前方向与投影显示全部对象；停止预览旋转"));
+    if(viewport_) connect(fitAll,&QAction::triggered,viewport_,&VulkanViewport::fitScene);
     auto* reset=button(observe,QStringLiteral("重置视图"),"resetView",QStyle::SP_DirHomeIcon);
     reset->setToolTip(QStringLiteral("恢复相机和演示组姿态，停止旋转。视口快捷键 F。"));
     auto* rotate=button(observe,QStringLiteral("自动旋转"),"autoRotate",QStyle::SP_MediaPlay);
@@ -157,6 +160,31 @@ void MainWindow::buildToolbar() {
             if(i==2) viewport_->showCompass=shown;
             if(i==3) { viewport_->cancelMove(); viewport_->showMoveGizmo=shown; }
             viewport_->requestUpdate();
+        });
+    }
+    auto* projection=group(view,QStringLiteral("投影"));
+    auto* perspective=button(projection,QStringLiteral("透视"),"perspectiveView",QStyle::SP_FileIcon);
+    auto* orthographic=button(projection,QStringLiteral("正交"),"orthographicView",QStyle::SP_FileIcon);
+    auto* projectionGroup=new QActionGroup(this);
+    for(auto* action:{perspective,orthographic}) { action->setCheckable(true); projectionGroup->addAction(action); }
+    perspective->setChecked(true);
+    perspective->setToolTip(QStringLiteral("近大远小；保留观察方向和画面中心"));
+    orthographic->setToolTip(QStringLiteral("平行投影；物体不会因距离远近改变显示大小"));
+    if(viewport_) {
+        connect(perspective,&QAction::triggered,this,[this] { viewport_->setProjection(false); });
+        connect(orthographic,&QAction::triggered,this,[this] { viewport_->setProjection(true); });
+        connect(viewport_,&VulkanViewport::projectionChanged,this,[perspective,orthographic](bool ortho) {
+            (ortho ? orthographic : perspective)->setChecked(true);
+        });
+    }
+    auto* standard=group(view,QStringLiteral("标准方向 · 正交"));
+    const QString viewNames[]={QStringLiteral("顶视"),QStringLiteral("前视"),QStringLiteral("右视")};
+    const char* viewIds[]={"topView","frontView","rightView"};
+    for(int i=0;i<3;++i) {
+        auto* action=button(standard,viewNames[i],viewIds[i],QStyle::SP_FileIcon);
+        action->setToolTip(QStringLiteral("切换正交方向，停止预览旋转；可继续拖动旋转视角"));
+        connect(action,&QAction::triggered,this,[this,i] {
+            if(viewport_) viewport_->setStandardView(static_cast<OrbitCamera::StandardView>(i));
         });
     }
     view->addStretch();

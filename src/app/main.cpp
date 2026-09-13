@@ -10,6 +10,8 @@
 #include "ui/HistoryCheck.h"
 #include "ui/ObjectActionsCheck.h"
 #include "ui/ProjectCheck.h"
+#include "app/PerformanceRun.h"
+#include <QJsonDocument>
 #include <cstdio>
 
 #include <QApplication>
@@ -43,6 +45,7 @@ int main(int argc, char* argv[])
     const bool uiLayoutTest = application.arguments().contains(QStringLiteral("--ui-layout-test"));
     const bool smoke = uiLayoutTest || projectTest || objectActionsTest || historyTest || transformTest || dimensionTest || application.arguments().contains(QStringLiteral("--smoke-test"));
     const bool gpuTest = application.arguments().contains(QStringLiteral("--gpu-test"));
+    const bool performanceTest=application.arguments().contains(QStringLiteral("--performance-test"));
     if (projectTest || objectActionsTest || historyTest || dimensionTest || transformTest) {
         qInstallMessageHandler([](QtMsgType, const QMessageLogContext&, const QString& text) {
             std::fprintf(stderr,"%s\n",qPrintable(text));
@@ -66,7 +69,8 @@ int main(int argc, char* argv[])
     if (!smoke) {
         // Match glslc's explicit Vulkan 1.0 target instead of an unspecified version.
         instance.setApiVersion(QVersionNumber(1, 0, 0));
-        if (instance.supportedLayers().contains("VK_LAYER_KHRONOS_validation"))
+        if ((!performanceTest || application.arguments().contains("--performance-validation"))
+            && instance.supportedLayers().contains("VK_LAYER_KHRONOS_validation"))
             instance.setLayers({"VK_LAYER_KHRONOS_validation"});
         instance.installDebugOutputFilter(QVulkanInstance::DebugUtilsFilter(
             [&validationErrors](auto severity, auto, const void*) {
@@ -74,14 +78,16 @@ int main(int argc, char* argv[])
                 return false;
             }));
         if (!instance.create()) {
-            if (!gpuTest) QMessageBox::critical(nullptr, QStringLiteral("Vulkan 初始化失败"),
+            if (!gpuTest && !performanceTest) QMessageBox::critical(nullptr, QStringLiteral("Vulkan 初始化失败"),
                 QStringLiteral("无法初始化 Vulkan，错误码 %1。请检查显卡驱动。").arg(instance.errorCode()));
             return 2;
         }
     }
     int result = 0;
+    QJsonObject performanceReport;
     {
     MainWindow window(smoke ? nullptr : &instance);
+    PerformanceRun performance(window,application,performanceReport);
     if (projectTest) { window.show(); QCoreApplication::processEvents(); return checkProject(window)?0:1; }
     if (uiLayoutTest) return checkUiLayout(window)?0:1;
     if (objectActionsTest) { window.show(); QCoreApplication::processEvents(); return checkObjectActions(window)?0:1; }
@@ -125,6 +131,7 @@ int main(int argc, char* argv[])
         image.save(QStringLiteral("build/q3-check-%1.png").arg(imageChecks));
     };
     window.show();
+    if(performanceTest) performance.start();
     if (application.arguments().contains(QStringLiteral("--ui-preview"))) {
         QTimer::singleShot(1800,&window,[&window,&application] {
             if (!window.scene().objects().empty()) window.selectObject(window.scene().objects().front().id);
@@ -244,6 +251,12 @@ int main(int argc, char* argv[])
     result = application.exec();
     }
     instance.destroy();
+    if(performanceTest) {
+        performanceReport["validation_errors_including_shutdown"]=validationErrors;
+        performanceReport["exit_code"]=validationErrors ? 4 : result;
+        QFile report(application.arguments().contains("--integrated") ? "build/performance-intel.json" : "build/performance-nvidia.json");
+        if(!report.open(QIODevice::WriteOnly) || report.write(QJsonDocument(performanceReport).toJson())<0) return 7;
+    }
     if (gpuTest) {
         QFile report(QStringLiteral("build/q3-gpu-test.txt"));
         if (report.open(QIODevice::Append | QIODevice::Text)) {

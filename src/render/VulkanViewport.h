@@ -15,6 +15,9 @@ public:
     QVulkanWindowRenderer* createRenderer() override;
     QMatrix4x4 modelViewProjection();
     void resetView();
+    void fitScene();
+    void setProjection(bool orthographic);
+    void setStandardView(OrbitCamera::StandardView view);
     void toggleRotation();
     const n3d::Scene& scene() const { return scene_; }
     void setScene(n3d::Scene scene);
@@ -36,7 +39,10 @@ public:
     float modelAngle = 0;
     int renderedFrames = 0;
     int swapchainGenerations = 0;
+    bool continuousRendering = false;
 signals:
+    void frameRecorded(qint64 cpuNanoseconds);
+    void projectionChanged(bool orthographic);
     void rendererStatus(const QString& message);
     void rotationChanged(bool enabled);
     void selectionChanged(quint64 id);

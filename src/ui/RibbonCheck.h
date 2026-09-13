@@ -11,6 +11,32 @@ inline bool checkRibbon(QWidget& window,VulkanViewport* viewport) {
     auto* tabs=window.findChild<QTabWidget*>("ribbonTabs");
     if(!tabs || tabs->count()!=4 || !viewport) return false;
     bool okay=true;
+    const auto fitCamera=viewport->camera;
+    const auto fitSelection=viewport->selectedObject();
+    auto* fitAction=window.findChild<QAction*>("fitScene");
+    if(!fitAction || !fitAction->isEnabled()) okay=false;
+    else {
+        viewport->camera.target={1000,1000,1000};
+        fitAction->trigger();
+        okay &= viewport->camera.framingRadius>0 && viewport->camera.target.length()<10
+            && viewport->selectedObject()==fitSelection;
+        const auto frame=viewport->grab();
+        okay &= !frame.isNull(); frame.save("build/fit-scene.png");
+    }
+    viewport->camera=fitCamera;
+    tabs->setCurrentIndex(2);
+    for(const char* id:{"topView","frontView","rightView","orthographicView","perspectiveView"}) {
+        auto* action=window.findChild<QAction*>(id);
+        if(!action || !action->isEnabled()) { okay=false; continue; }
+        action->trigger();
+        okay &= viewport->camera.orthographic==(QString::fromLatin1(id)!="perspectiveView");
+        const auto frame=viewport->grab();
+        okay &= !frame.isNull();
+        frame.save(QStringLiteral("build/%1.png").arg(QString::fromLatin1(id)));
+    }
+    viewport->resetView();
+    okay &= window.findChild<QAction*>("perspectiveView")->isChecked();
+    qInfo("Orthographic ribbon and rendered views: %d",int(okay));
     auto click=[&](const char* id) {
         auto* action=window.findChild<QAction*>(id);
         if(!action || !action->isEnabled()) { okay=false; return; }

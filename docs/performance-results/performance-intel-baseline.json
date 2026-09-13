@@ -1,0 +1,46 @@
+{
+    "boxes": 500,
+    "completed": true,
+    "configuration": "Release",
+    "cylinders": 500,
+    "device_matches_request": true,
+    "exit_code": 0,
+    "gpu": "Intel(R) UHD Graphics",
+    "height": 640,
+    "objects": 1000,
+    "pick_hits": 40,
+    "pick_p50_ms": 1.9281,
+    "pick_p95_ms": 2.8293,
+    "samples": [
+        {
+            "cpu_record_p50_ms": 0.1996,
+            "cpu_record_p95_ms": 0.3431,
+            "frame_p50_ms": 13.4177,
+            "frame_p95_ms": 14.8759,
+            "frames": 447,
+            "mode": "perspective",
+            "seconds": 6.0070988,
+            "submitted_fps": 74.411960728863,
+            "target_fps": 30,
+            "target_met": true
+        },
+        {
+            "cpu_record_p50_ms": 0.2002,
+            "cpu_record_p95_ms": 0.5662,
+            "frame_p50_ms": 13.431,
+            "frame_p95_ms": 15.3856,
+            "frames": 446,
+            "mode": "orthographic",
+            "seconds": 5.9927395,
+            "submitted_fps": 74.42339183940834,
+            "target_fps": 30,
+            "target_met": true
+        }
+    ],
+    "scene_setup_ms": 119.4075,
+    "screenshot_saved": true,
+    "timing_scope": "CPU command recording and submitted-frame cadence; includes Qt/present pacing, not GPU timestamps",
+    "validation_enabled": false,
+    "validation_errors_including_shutdown": 0,
+    "width": 1045
+}

@@ -26,7 +26,9 @@ inline bool checkProject(MainWindow& window) {
     auto choice=[&](QMessageBox::StandardButton button,auto action) {
         bool prompted=false; QTimer response;
         QObject::connect(&response,&QTimer::timeout,&window,[&] {
-            if (auto* prompt=window.findChild<QMessageBox*>("unsavedChanges"); prompt && prompt->isVisible()) { prompted=true; prompt->done(button); }
+            if (auto* prompt=window.findChild<QMessageBox*>("unsavedChanges"); prompt && prompt->isVisible()) {
+                response.stop(); prompted=true; prompt->done(button);
+            }
         });
         response.start(1); const bool result=action(); response.stop();
         check(prompted,"unsaved replacement asks for a decision"); return result;
@@ -84,11 +86,16 @@ inline bool checkProject(MainWindow& window) {
         QTimer cancelSave;
         QObject::connect(&cancelSave,&QTimer::timeout,&window,[&] {
             if (auto* dialog=window.findChild<QFileDialog*>("saveProjectDialog"); dialog && dialog->isVisible()) {
-                cancelledDialog=true; dialog->reject();
+                cancelSave.stop();
+                // Let the native dialog finish entering its event loop before
+                // simulating a user's single Cancel action.
+                QTimer::singleShot(100,dialog,[dialog,&cancelledDialog] { cancelledDialog=true; dialog->reject(); });
             }
         });
         cancelSave.start(1);
-        check(!choice(QMessageBox::Save,[&] { return window.openProjectFrom(path,&error); })
+        const bool replacement=choice(QMessageBox::Save,[&] { return window.openProjectFrom(path,&error); });
+        qInfo("Project cancel-save state: replacement=%d dialog=%d dirty=%d unnamed=%d width=%g",int(replacement),int(cancelledDialog),int(window.hasUnsavedChanges()),int(window.projectPath().isEmpty()),double(std::get<n3d::BoxParameters>(window.scene().find(box)->data.shape).width));
+        check(!replacement
               && cancelledDialog && window.hasUnsavedChanges() && window.projectPath().isEmpty()
               && std::get<n3d::BoxParameters>(window.scene().find(box)->data.shape).width==1700,"cancelling first save prevents document replacement");
     }
@@ -97,8 +104,11 @@ inline bool checkProject(MainWindow& window) {
         const auto snapshot=window.scene();
         check(window.saveProjectTo(path,&error),"GPU scene saved");
         const auto before=viewport->grab();
+        const auto savedCamera=viewport->camera;
         window.setScene(n3d::sceneExample(3));
-        check(window.openProjectFrom(path,&error),"GPU scene reopened"); viewport->camera.distance=9;
+        check(window.openProjectFrom(path,&error),"GPU scene reopened");
+        check(viewport->camera.framingRadius>0,"opening scene automatically frames objects");
+        viewport->camera=savedCamera;
         const auto after=viewport->grab();
         check(after==before && viewport->scene().objects().size()==snapshot.objects().size(),"saved and reopened scene pixels identical at same camera");
         after.save(QStringLiteral("build/q6-file-reopened.png"));
